@@ -9,6 +9,17 @@ use Illuminate\Support\Str;
 use App\Models\Employee;
 use App\Models\Position;
 use Illuminate\Support\Facades\Storage;
+use RealRashid\SweetAlert\Facades\Alert;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\EmployeesExport;
+use Maatwebsite\Excel\Concerns\FromView;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PDF;
+
+
+
 
 class EmployeeController extends Controller
 {
@@ -19,16 +30,41 @@ class EmployeeController extends Controller
     {
         $pageTitle = 'Employee List';
 
-        // ELOQUENT
-        $employees = Employee::all();
+        confirmDelete();
+        $positions = Position::all();
 
         return view('employee.index', [
             'pageTitle' => $pageTitle,
-            'employees' => $employees
+            'positions' => $positions
         ]);
     }
 
+    public function exportPdf()
+    {
+        $employees = Employee::all();
 
+        $pdf = PDF::loadView('employee.export_pdf', compact('employees'));
+
+        return $pdf->download('employees.pdf');
+    }
+
+    public function exportExcel()
+    {
+        return Excel::download(new EmployeesExport, 'employees.xlsx');
+    }
+    public function getData(Request $request)
+    {
+        $employees = Employee::with('position');
+
+        if ($request->ajax()) {
+            return datatables()->of($employees)
+                ->addIndexColumn()
+                ->addColumn('actions', function ($employee) {
+                    return view('employee.actions', compact('employee'));
+                })
+                ->toJson();
+        }
+    }
 
 
     public function create()
@@ -84,6 +120,7 @@ class EmployeeController extends Controller
             $employee->encrypted_filename = $encryptedFilename;
         }
         $employee->save();
+        Alert::success('Added Successfully', 'Employee Data Added Successfully.');
 
         return redirect()->route('employees.index');
     }
@@ -159,8 +196,9 @@ class EmployeeController extends Controller
         // Simpan perubahan
         $employee->save();
 
-        // Redirect ke halaman index atau detail
-        return redirect()->route('employees.index')->with('success', 'Employee updated successfully!');
+        Alert::success('Changed Successfully', 'Employee Data Changed Successfully.');
+
+        return redirect()->route('employees.index');
     }
 
 
@@ -182,17 +220,18 @@ class EmployeeController extends Controller
         // Hapus data employee dari database
         $employee->delete();
 
-        // Redirect ke halaman daftar employees dengan pesan sukses
-        return redirect()->route('employees.index')->with('success', 'Employee and associated CV deleted successfully!');
+        Alert::success('Deleted Successfully', 'Employee Data Deleted Successfully.');
+
+        return redirect()->route('employees.index');
     }
 
     public function downloadFile($employeeId)
     {
         $employee = Employee::find($employeeId);
-        $encryptedFilename = 'public/files/'.$employee->encrypted_filename;
-        $downloadFilename = Str::lower($employee->firstname.'_'.$employee->lastname.'_cv.pdf');
+        $encryptedFilename = 'public/files/' . $employee->encrypted_filename;
+        $downloadFilename = Str::lower($employee->firstname . '_' . $employee->lastname . '_cv.pdf');
 
-        if(Storage::exists($encryptedFilename)) {
+        if (Storage::exists($encryptedFilename)) {
             return Storage::download($encryptedFilename, $downloadFilename);
         }
     }

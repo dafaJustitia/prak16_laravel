@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use illuminate\http\Request;
 
+Route::get('exportPdf', [EmployeeController::class, 'exportPdf'])->name('employees.exportPdf');
+
+Route::get('exportExcel', [EmployeeController::class, 'exportExcel'])->name('employees.exportExcel');
+
+Route::get('getEmployees', [EmployeeController::class, 'getData'])->name('employees.getData');
 
 Route::get('/', function () {
     if (Auth::check()) {
